@@ -29,12 +29,9 @@ class DualGaugeCard extends HTMLElement {
     const batteryCharge = Math.max(0, -batteryTotal);
 
     // Consuming: house + battery charging
-    const consumers = [
-      { name: 'House', value: house, color: config.house_color || '#78909C' },
-    ];
-    if (batteryCharge > 10) {
-      consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0' });
-    }
+    const consumers = [];
+    if (house > 10) consumers.push({ name: 'House', value: house, color: config.house_color || '#78909C' });
+    if (batteryCharge > 10) consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0' });
 
     // Supplying: solar + grid + battery discharge
     const suppliers = [];
@@ -45,46 +42,55 @@ class DualGaugeCard extends HTMLElement {
     const consumeTotal = consumers.reduce((s, c) => s + c.value, 0);
     const supplyTotal = suppliers.reduce((s, c) => s + c.value, 0);
 
-    const formatW = (v) => v >= 1000 ? (v / 1000).toFixed(1) + ' kW' : Math.round(v) + ' W';
+    const formatW = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'kW' : Math.round(v) + 'W';
 
-    const width = 300;
-    const height = 200;
+    const width = 320;
+    const height = 220;
     const cx = width / 2;
-    const outerR = 110;
-    const innerR = 70;
-    const thickness = outerR - innerR;
+    const cy = height - 30;
+    const outerR = 120;
+    const innerR = 80;
+    const arcWidth = 22;
+    const gap = 6;
 
-    const arcPath = (startAngle, endAngle, r1, r2) => {
-      const toRad = (a) => (a - 90) * Math.PI / 180;
-      const x1 = cx + r2 * Math.cos(toRad(startAngle));
-      const y1 = height - 10 + r2 * Math.sin(toRad(startAngle));
-      const x2 = cx + r2 * Math.cos(toRad(endAngle));
-      const y2 = height - 10 + r2 * Math.sin(toRad(endAngle));
-      const x3 = cx + r1 * Math.cos(toRad(endAngle));
-      const y3 = height - 10 + r1 * Math.sin(toRad(endAngle));
-      const x4 = cx + r1 * Math.cos(toRad(startAngle));
-      const y4 = height - 10 + r1 * Math.sin(toRad(startAngle));
-      const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
-      return `M${x1},${y1} A${r2},${r2} 0 ${largeArc} 1 ${x2},${y2} L${x3},${y3} A${r1},${r1} 0 ${largeArc} 0 ${x4},${y4} Z`;
+    // Outer arc: r from (outerR - arcWidth) to outerR
+    // Inner arc: r from innerR to (innerR + arcWidth)
+    const outerR1 = outerR - arcWidth;
+    const outerR2 = outerR;
+    const innerR1 = innerR;
+    const innerR2 = innerR + arcWidth;
+
+    const polarToCart = (angle, r) => {
+      const rad = (angle - 180) * Math.PI / 180;
+      return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
     };
 
-    const buildArcs = (items, total, r1, r2, startDeg, endDeg) => {
-      if (total === 0 || items.length === 0) return '';
-      const range = endDeg - startDeg;
-      let current = startDeg;
+    const arcPath = (startAngle, endAngle, r1, r2) => {
+      // Angles: 0 = left, 180 = right (top semicircle)
+      const s1 = polarToCart(startAngle, r2);
+      const e1 = polarToCart(endAngle, r2);
+      const s2 = polarToCart(endAngle, r1);
+      const e2 = polarToCart(startAngle, r1);
+      const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+      return `M${s1.x},${s1.y} A${r2},${r2} 0 ${largeArc} 1 ${e1.x},${e1.y} L${s2.x},${s2.y} A${r1},${r1} 0 ${largeArc} 0 ${e2.x},${e2.y} Z`;
+    };
+
+    const buildArcs = (items, total, r1, r2) => {
+      if (total === 0 || items.length === 0) {
+        return `<path d="${arcPath(0, 180, r1, r2)}" fill="#444" opacity="0.3"/>`;
+      }
       let paths = '';
+      let current = 0;
       for (const item of items) {
-        const sweep = (item.value / total) * range;
+        const sweep = (item.value / total) * 180;
         if (sweep > 0.5) {
-          paths += `<path d="${arcPath(current, current + sweep, r1, r2)}" fill="${item.color}" />`;
-          // Label
-          const midAngle = current + sweep / 2;
-          const toRad = (a) => (a - 90) * Math.PI / 180;
-          const labelR = (r1 + r2) / 2;
-          const lx = cx + labelR * Math.cos(toRad(midAngle));
-          const ly = height - 10 + labelR * Math.sin(toRad(midAngle));
-          if (sweep > 15) {
-            paths += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="10" font-weight="bold">${formatW(item.value)}</text>`;
+          paths += `<path d="${arcPath(current, current + sweep, r1, r2)}" fill="${item.color}"/>`;
+          // Label if segment is big enough
+          if (sweep > 20) {
+            const midAngle = current + sweep / 2;
+            const labelR = (r1 + r2) / 2;
+            const pos = polarToCart(midAngle, labelR);
+            paths += `<text x="${pos.x}" y="${pos.y}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="10" font-weight="bold">${formatW(item.value)}</text>`;
           }
         }
         current += sweep;
@@ -92,31 +98,29 @@ class DualGaugeCard extends HTMLElement {
       return paths;
     };
 
-    // Outer arc: Consuming (top half, -180 to 0)
-    const outerArcs = buildArcs(consumers, consumeTotal, outerR - 18, outerR, -180, 0);
-    // Inner arc: Supplying (top half, -180 to 0)
-    const innerArcs = buildArcs(suppliers, supplyTotal, innerR, innerR + 18, -180, 0);
+    const outerArcs = buildArcs(consumers, consumeTotal, outerR1, outerR2);
+    const innerArcs = buildArcs(suppliers, supplyTotal, innerR1, innerR2);
 
     // Legend
-    const allItems = [...consumers.map(c => ({...c, type: '▼'})), ...suppliers.map(s => ({...s, type: '▲'}))];
-    const legend = allItems.map(i => `<span style="margin:0 6px;font-size:11px;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('');
+    const allItems = [...consumers, ...suppliers];
+    const legend = allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('');
 
     this.innerHTML = `
       <ha-card header="${config.title || 'Energy Balance'}">
         <div style="padding: 0 16px 16px; text-align:center;">
           <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;">
             <!-- Background arcs -->
-            <path d="${arcPath(-180, 0, outerR - 18, outerR)}" fill="#333" opacity="0.3"/>
-            <path d="${arcPath(-180, 0, innerR, innerR + 18)}" fill="#333" opacity="0.3"/>
+            <path d="${arcPath(0, 180, outerR1, outerR2)}" fill="#444" opacity="0.2"/>
+            <path d="${arcPath(0, 180, innerR1, innerR2)}" fill="#444" opacity="0.2"/>
             <!-- Data arcs -->
             ${outerArcs}
             ${innerArcs}
             <!-- Center labels -->
-            <text x="${cx}" y="${height - 50}" text-anchor="middle" fill="var(--primary-text-color)" font-size="11">Consuming</text>
-            <text x="${cx}" y="${height - 35}" text-anchor="middle" fill="var(--primary-text-color)" font-size="14" font-weight="bold">${formatW(consumeTotal)}</text>
-            <text x="${cx}" y="${height - 15}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="10">Supplying ${formatW(supplyTotal)}</text>
+            <text x="${cx}" y="${cy - 20}" text-anchor="middle" fill="var(--primary-text-color)" font-size="11" opacity="0.7">Consuming</text>
+            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--primary-text-color)" font-size="16" font-weight="bold">${formatW(consumeTotal)}</text>
+            <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="10">Supplying ${formatW(supplyTotal)}</text>
           </svg>
-          <div style="margin-top:4px;">${legend}</div>
+          <div style="margin-top:2px;line-height:1.6;">${legend}</div>
         </div>
       </ha-card>
     `;
