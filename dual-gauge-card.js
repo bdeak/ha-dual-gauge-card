@@ -120,8 +120,8 @@ class DualGaugeCard extends HTMLElement {
     if (centerDisplay === 'grid') {
       centerLabel = 'Grid';
       centerValue = Math.abs(grid);
-      secondaryLabel = grid >= 0 ? 'Importing' : 'Exporting';
-      secondaryValue = consumeTotal;
+      secondaryLabel = 'House';
+      secondaryValue = house;
     } else if (centerDisplay === 'supplying') {
       centerLabel = innerLabel;
       centerValue = supplyTotal;
