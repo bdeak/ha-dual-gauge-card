@@ -35,6 +35,13 @@ class DualGaugeCard extends HTMLElement {
     const batteryDischarge = Math.max(0, batteryTotal);
     const batteryCharge = Math.max(0, -batteryTotal);
 
+    // Price info
+    const priceLevel = config.price_level_entity ? (hass.states[config.price_level_entity]?.state || '') : '';
+    const priceValue = config.price_entity ? parseFloat(hass.states[config.price_entity]?.state || 0) : null;
+
+    const priceColors = { 'very_cheap': '#4CAF50', 'cheap': '#66BB6A', 'normal': '#FF9800', 'expensive': '#FF5722', 'very_expensive': '#F44336' };
+    const priceIcons = { 'very_cheap': '💰', 'cheap': '💲', 'normal': '💵', 'expensive': '🔥', 'very_expensive': '🚨' };
+
     // Consuming: house + battery charging
     const consumers = [];
     if (house > 10) consumers.push({ name: 'House', value: house, color: config.house_color || '#78909C' });
@@ -105,29 +112,39 @@ class DualGaugeCard extends HTMLElement {
     const allItems = [...consumers, ...suppliers];
     const legend = showLegend ? allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('') : '';
 
+    // Price bar
+    let priceBar = '';
+    if (priceLevel || priceValue !== null) {
+      const pColor = priceColors[priceLevel] || '#999';
+      const pLabel = priceLevel ? priceLevel.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+      const pIcon = priceIcons[priceLevel] || '💵';
+      priceBar = `<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding:4px 8px;border-radius:6px;background:rgba(255,255,255,0.05);">
+        <span style="font-size:12px;color:${pColor};font-weight:bold;">${pIcon} ${pLabel}</span>
+        ${priceValue !== null ? `<span style="font-size:12px;color:var(--primary-text-color);">€ ${Math.round(priceValue)} ct/kWh</span>` : ''}
+      </div>`;
+    }
+
     this.innerHTML = `
       <ha-card header="${config.title || ''}">
         <div style="padding: 0 16px 12px; text-align:center;${config.title ? '' : 'padding-top:12px;'}">
           <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;">
-            <!-- Background arcs -->
             <path d="${arcPath(0, 180, outerR1, outerR2)}" fill="#444" opacity="0.2"/>
             <path d="${arcPath(0, 180, innerR1, innerR2)}" fill="#444" opacity="0.2"/>
-            <!-- Data arcs -->
             ${outerArcs}
             ${innerArcs}
-            <!-- Center labels -->
             <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--primary-text-color)" font-size="10" opacity="0.7">${outerLabel}</text>
             <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="var(--primary-text-color)" font-size="15" font-weight="bold">${formatW(consumeTotal)}</text>
             <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="9">${innerLabel} ${formatW(supplyTotal)}</text>
           </svg>
           ${legend ? `<div style="margin-top:2px;line-height:1.6;">${legend}</div>` : ''}
+          ${priceBar}
         </div>
       </ha-card>
     `;
   }
 
   getCardSize() {
-    return 3;
+    return 4;
   }
 
   static getStubConfig() {
@@ -136,7 +153,9 @@ class DualGaugeCard extends HTMLElement {
       house_entity: "sensor.house_power_consumption",
       solar_entity: "sensor.growatt_zgq0f6g1bk_pv_power",
       grid_entity: "sensor.ltibber_0100100700ff",
-      battery_entities: ["sensor.venus_e_3_0_battery_power", "sensor.venus_e_3_0_device_2_battery_power"]
+      battery_entities: ["sensor.venus_e_3_0_battery_power", "sensor.venus_e_3_0_device_2_battery_power"],
+      price_level_entity: "sensor.balint_current_price_level",
+      price_entity: "sensor.balint_hourly_price_current"
     };
   }
 }
