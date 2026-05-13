@@ -114,6 +114,26 @@ class DualGaugeCard extends HTMLElement {
       priceRightSvg = `<text x="${width - 10}" y="18" text-anchor="end" fill="var(--primary-text-color)" font-size="11">${Math.round(priceValue)} ct/kWh</text>`;
     }
 
+    // Center display mode
+    const centerDisplay = config.center_display || 'consuming'; // 'consuming', 'grid', 'supplying'
+    let centerLabel, centerValue, secondaryLabel, secondaryValue;
+    if (centerDisplay === 'grid') {
+      centerLabel = 'Grid';
+      centerValue = Math.abs(grid);
+      secondaryLabel = grid >= 0 ? 'Importing' : 'Exporting';
+      secondaryValue = consumeTotal;
+    } else if (centerDisplay === 'supplying') {
+      centerLabel = innerLabel;
+      centerValue = supplyTotal;
+      secondaryLabel = outerLabel;
+      secondaryValue = consumeTotal;
+    } else {
+      centerLabel = outerLabel;
+      centerValue = consumeTotal;
+      secondaryLabel = innerLabel;
+      secondaryValue = supplyTotal;
+    }
+
     // Legend
     const allItems = [...consumers, ...suppliers];
     const legend = showLegend ? allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('') : '';
@@ -128,9 +148,9 @@ class DualGaugeCard extends HTMLElement {
             <path d="${arcPath(0, 180, innerR1, innerR2)}" fill="#444" opacity="0.2"/>
             ${outerArcs}
             ${innerArcs}
-            <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--primary-text-color)" font-size="10" opacity="0.7">${outerLabel}</text>
-            <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="var(--primary-text-color)" font-size="15" font-weight="bold">${formatW(consumeTotal)}</text>
-            <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="9">${innerLabel} ${formatW(supplyTotal)}</text>
+            <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--primary-text-color)" font-size="10" opacity="0.7">${centerLabel}</text>
+            <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="var(--primary-text-color)" font-size="15" font-weight="bold">${formatW(centerValue)}</text>
+            <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="9">${secondaryLabel} ${formatW(secondaryValue)}</text>
           </svg>
           ${legend ? `<div style="margin-top:2px;line-height:1.6;">${legend}</div>` : ''}
         </div>
