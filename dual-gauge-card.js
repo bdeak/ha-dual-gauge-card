@@ -14,6 +14,13 @@ class DualGaugeCard extends HTMLElement {
     const hass = this._hass;
     const config = this._config;
 
+    // Configurable options
+    const arcThickness = config.arc_thickness || 22;
+    const outerLabel = config.outer_label || 'Consuming';
+    const innerLabel = config.inner_label || 'Supplying';
+    const showLabels = config.show_labels !== false;
+    const showLegend = config.show_legend !== false;
+
     // Get values
     const house = Math.max(0, parseFloat(hass.states[config.house_entity]?.state || 0));
     const solar = Math.max(0, parseFloat(hass.states[config.solar_entity]?.state || 0));
@@ -44,21 +51,16 @@ class DualGaugeCard extends HTMLElement {
 
     const formatW = (v) => v >= 1000 ? (v / 1000).toFixed(1) + 'kW' : Math.round(v) + 'W';
 
-    const width = 320;
-    const height = 220;
-    const cx = width / 2;
-    const cy = height - 30;
-    const outerR = 120;
-    const innerR = 80;
-    const arcWidth = 22;
-    const gap = 6;
-
-    // Outer arc: r from (outerR - arcWidth) to outerR
-    // Inner arc: r from innerR to (innerR + arcWidth)
-    const outerR1 = outerR - arcWidth;
+    const width = 300;
+    const gap = 4;
+    const outerR = 115;
+    const outerR1 = outerR - arcThickness;
     const outerR2 = outerR;
-    const innerR1 = innerR;
-    const innerR2 = innerR + arcWidth;
+    const innerR2 = outerR1 - gap;
+    const innerR1 = innerR2 - arcThickness;
+    const height = outerR + 40;
+    const cx = width / 2;
+    const cy = outerR + 5;
 
     const polarToCart = (angle, r) => {
       const rad = (angle - 180) * Math.PI / 180;
@@ -66,7 +68,6 @@ class DualGaugeCard extends HTMLElement {
     };
 
     const arcPath = (startAngle, endAngle, r1, r2) => {
-      // Angles: 0 = left, 180 = right (top semicircle)
       const s1 = polarToCart(startAngle, r2);
       const e1 = polarToCart(endAngle, r2);
       const s2 = polarToCart(endAngle, r1);
@@ -85,8 +86,7 @@ class DualGaugeCard extends HTMLElement {
         const sweep = (item.value / total) * 180;
         if (sweep > 0.5) {
           paths += `<path d="${arcPath(current, current + sweep, r1, r2)}" fill="${item.color}"/>`;
-          // Label if segment is big enough
-          if (sweep > 20) {
+          if (showLabels && sweep > 18) {
             const midAngle = current + sweep / 2;
             const labelR = (r1 + r2) / 2;
             const pos = polarToCart(midAngle, labelR);
@@ -103,11 +103,11 @@ class DualGaugeCard extends HTMLElement {
 
     // Legend
     const allItems = [...consumers, ...suppliers];
-    const legend = allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('');
+    const legend = showLegend ? allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('') : '';
 
     this.innerHTML = `
-      <ha-card header="${config.title || 'Energy Balance'}">
-        <div style="padding: 0 16px 16px; text-align:center;">
+      <ha-card header="${config.title || ''}">
+        <div style="padding: 0 16px 12px; text-align:center;${config.title ? '' : 'padding-top:12px;'}">
           <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;">
             <!-- Background arcs -->
             <path d="${arcPath(0, 180, outerR1, outerR2)}" fill="#444" opacity="0.2"/>
@@ -116,18 +116,18 @@ class DualGaugeCard extends HTMLElement {
             ${outerArcs}
             ${innerArcs}
             <!-- Center labels -->
-            <text x="${cx}" y="${cy - 20}" text-anchor="middle" fill="var(--primary-text-color)" font-size="11" opacity="0.7">Consuming</text>
-            <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="var(--primary-text-color)" font-size="16" font-weight="bold">${formatW(consumeTotal)}</text>
-            <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="10">Supplying ${formatW(supplyTotal)}</text>
+            <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--primary-text-color)" font-size="10" opacity="0.7">${outerLabel}</text>
+            <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="var(--primary-text-color)" font-size="15" font-weight="bold">${formatW(consumeTotal)}</text>
+            <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="9">${innerLabel} ${formatW(supplyTotal)}</text>
           </svg>
-          <div style="margin-top:2px;line-height:1.6;">${legend}</div>
+          ${legend ? `<div style="margin-top:2px;line-height:1.6;">${legend}</div>` : ''}
         </div>
       </ha-card>
     `;
   }
 
   getCardSize() {
-    return 4;
+    return 3;
   }
 
   static getStubConfig() {
