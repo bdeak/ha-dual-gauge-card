@@ -39,13 +39,13 @@ class DualGaugeCard extends HTMLElement {
     const priceColors = { 'very_cheap': '#4CAF50', 'cheap': '#66BB6A', 'normal': '#FF9800', 'expensive': '#FF5722', 'very_expensive': '#F44336' };
 
     const consumers = [];
-    if (house > 10) consumers.push({ name: 'House', value: house, color: config.house_color || '#78909C' });
-    if (batteryCharge > 10) consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0' });
+    if (house > 1) consumers.push({ name: 'House', value: house, color: config.house_color || '#78909C' });
+    if (batteryCharge > 50) consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0' });
 
     const suppliers = [];
-    if (solar > 10) suppliers.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107' });
-    if (gridImport > 10) suppliers.push({ name: 'Grid', value: gridImport, color: config.grid_color || '#2196F3' });
-    if (batteryDischarge > 10) suppliers.push({ name: 'Battery', value: batteryDischarge, color: config.battery_discharge_color || '#4CAF50' });
+    if (solar > 1) suppliers.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107' });
+    if (gridImport > 1) suppliers.push({ name: 'Grid', value: gridImport, color: config.grid_color || '#2196F3' });
+    if (batteryDischarge > 50) suppliers.push({ name: 'Battery', value: batteryDischarge, color: config.battery_discharge_color || '#4CAF50' });
 
     const consumeTotal = consumers.reduce((s, c) => s + c.value, 0);
     const supplyTotal = suppliers.reduce((s, c) => s + c.value, 0);
