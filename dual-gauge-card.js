@@ -39,8 +39,23 @@ class DualGaugeCard extends HTMLElement {
     const priceColors = { 'very_cheap': '#4CAF50', 'cheap': '#66BB6A', 'normal': '#FF9800', 'expensive': '#FF5722', 'very_expensive': '#F44336' };
 
     const consumers = [];
-    if (house > 1) consumers.push({ name: 'House', value: house, color: config.house_color || '#78909C' });
-    if (batteryCharge > 50) consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0' });
+    // Add configured consumer components
+    const consumerEntities = config.consumer_entities || [];
+    let knownConsumers = 0;
+    for (const ce of consumerEntities) {
+      const val = Math.max(0, parseFloat(hass.states[ce.entity]?.state || 0));
+      if (val > 1) {
+        consumers.push({ name: ce.name || ce.entity, value: val, color: ce.color || '#B0BEC5' });
+        knownConsumers += val;
+      }
+    }
+    if (batteryCharge > 50) {
+      consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0' });
+      knownConsumers += batteryCharge;
+    }
+    // Remaining house load (total minus known components)
+    const remainingHouse = Math.max(0, house - knownConsumers);
+    if (remainingHouse > 1) consumers.unshift({ name: 'House', value: remainingHouse, color: config.house_color || '#78909C' });
 
     const suppliers = [];
     if (solar > 1) suppliers.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107' });
