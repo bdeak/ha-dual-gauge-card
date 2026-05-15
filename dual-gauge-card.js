@@ -53,6 +53,7 @@ class DualGaugeCard extends HTMLElement {
       consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0', font_color: config.battery_charge_font_color || 'white' });
       knownConsumers += batteryCharge;
     }
+    // Remaining house load (total minus known components)
     const remainingHouse = Math.max(0, house - knownConsumers);
     if (remainingHouse > 1) consumers.unshift({ name: 'House', value: remainingHouse, color: config.house_color || '#78909C', font_color: config.house_font_color || 'white' });
 
@@ -91,32 +92,7 @@ class DualGaugeCard extends HTMLElement {
       return `M${s1.x},${s1.y} A${r2},${r2} 0 ${largeArc} 1 ${e1.x},${e1.y} L${s2.x},${s2.y} A${r1},${r1} 0 ${largeArc} 0 ${e2.x},${e2.y} Z`;
     };
 
-    const transition = animate ? 'transition: d 0.8s ease, opacity 0.5s ease;' : '';
-
-    const buildArcs = (items, total, r1, r2) => {
-      if (total === 0 || items.length === 0) {
-        return `<path d="${arcPath(0, 180, r1, r2)}" fill="#444" opacity="0.3" style="${transition}"/>`;
-      }
-      let paths = '';
-      let current = 0;
-      for (const item of items) {
-        const sweep = (item.value / total) * 180;
-        if (sweep > 0.5) {
-          paths += `<path d="${arcPath(current, current + sweep, r1, r2)}" fill="${item.color}" style="${transition}"/>`;
-          if (showLabels && sweep > 18) {
-            const midAngle = current + sweep / 2;
-            const labelR = (r1 + r2) / 2;
-            const pos = polarToCart(midAngle, labelR);
-            paths += `<text x="${pos.x}" y="${pos.y}" text-anchor="middle" dominant-baseline="middle" fill="${item.font_color}" font-size="10" font-weight="bold" style="${animate ? 'transition: all 0.8s ease;' : ''}">${formatW(item.value)}</text>`;
-          }
-        }
-        current += sweep;
-      }
-      return paths;
-    };
-
-    const outerArcs = buildArcs(consumers, consumeTotal, outerR1, outerR2);
-    const innerArcs = buildArcs(suppliers, supplyTotal, innerR1, innerR2);
+    // Animation handled inline in SVG rendering below
 
     let priceLeftSvg = '';
     let priceRightSvg = '';
@@ -151,24 +127,66 @@ class DualGaugeCard extends HTMLElement {
     const allItems = [...consumers, ...suppliers];
     const legend = showLegend ? allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('') : '';
 
-    this.innerHTML = `
-      <ha-card header="${config.title || ''}">
-        <div style="padding: 0 16px 12px; text-align:center;${config.title ? '' : 'padding-top:12px;'}">
-          <svg viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;">
-            ${priceLeftSvg}
-            ${priceRightSvg}
-            <path d="${arcPath(0, 180, outerR1, outerR2)}" fill="#444" opacity="0.2"/>
-            <path d="${arcPath(0, 180, innerR1, innerR2)}" fill="#444" opacity="0.2"/>
-            ${outerArcs}
-            ${innerArcs}
-            <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--primary-text-color)" font-size="10" opacity="0.7">${centerLabel}</text>
-            <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="var(--primary-text-color)" font-size="15" font-weight="bold">${formatW(centerValue)}</text>
-            <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="9">${secondaryLabel} ${formatW(secondaryValue)}</text>
-          </svg>
-          ${legend ? `<div style="margin-top:2px;line-height:1.6;">${legend}</div>` : ''}
-        </div>
-      </ha-card>
+    // Create DOM only once, then update in place for animations
+    if (!this._svg) {
+      this.innerHTML = `
+        <ha-card header="${config.title || ''}">
+          <div class="dgc-wrap" style="padding: 0 16px 12px; text-align:center;${config.title ? '' : 'padding-top:12px;'}">
+            <svg class="dgc-svg" viewBox="0 0 ${width} ${height}" width="100%" style="max-width:${width}px;"></svg>
+            <div class="dgc-legend" style="margin-top:2px;line-height:1.6;"></div>
+          </div>
+        </ha-card>
+      `;
+      this._svg = this.querySelector('.dgc-svg');
+      this._legendEl = this.querySelector('.dgc-legend');
+    }
+
+    const transStyle = animate ? 'transition: d 0.6s ease, opacity 0.6s ease;' : '';
+    const textTransStyle = animate ? 'transition: all 0.6s ease;' : '';
+
+    let svgContent = `
+      ${priceLeftSvg}
+      ${priceRightSvg}
+      <path d="${arcPath(0, 180, outerR1, outerR2)}" fill="#444" opacity="0.2"/>
+      <path d="${arcPath(0, 180, innerR1, innerR2)}" fill="#444" opacity="0.2"/>
     `;
+
+    // Build arcs with IDs for potential future in-place updates
+    let current = 0;
+    for (const item of consumers) {
+      const sweep = (item.value / (consumeTotal || 1)) * 180;
+      if (sweep > 0.5) {
+        svgContent += `<path d="${arcPath(current, current + sweep, outerR1, outerR2)}" fill="${item.color}" style="${transStyle}"/>`;
+        if (showLabels && sweep > 18) {
+          const pos = polarToCart(current + sweep / 2, (outerR1 + outerR2) / 2);
+          svgContent += `<text x="${pos.x}" y="${pos.y}" text-anchor="middle" dominant-baseline="middle" fill="${item.font_color}" font-size="10" font-weight="bold" style="${textTransStyle}">${formatW(item.value)}</text>`;
+        }
+      }
+      current += sweep;
+    }
+
+    current = 0;
+    for (const item of suppliers) {
+      const sweep = (item.value / (supplyTotal || 1)) * 180;
+      if (sweep > 0.5) {
+        svgContent += `<path d="${arcPath(current, current + sweep, innerR1, innerR2)}" fill="${item.color}" style="${transStyle}"/>`;
+        if (showLabels && sweep > 18) {
+          const pos = polarToCart(current + sweep / 2, (innerR1 + innerR2) / 2);
+          svgContent += `<text x="${pos.x}" y="${pos.y}" text-anchor="middle" dominant-baseline="middle" fill="${item.font_color}" font-size="10" font-weight="bold" style="${textTransStyle}">${formatW(item.value)}</text>`;
+        }
+      }
+      current += sweep;
+    }
+
+    svgContent += `
+      <text x="${cx}" y="${cy - 14}" text-anchor="middle" fill="var(--primary-text-color)" font-size="10" opacity="0.7">${centerLabel}</text>
+      <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="var(--primary-text-color)" font-size="15" font-weight="bold">${formatW(centerValue)}</text>
+      <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="var(--secondary-text-color)" font-size="9">${secondaryLabel} ${formatW(secondaryValue)}</text>
+    `;
+
+    this._svg.innerHTML = svgContent;
+    this._legendEl.innerHTML = legend || '';
+    this._legendEl.style.display = legend ? '' : 'none';
   }
 
   getCardSize() {
