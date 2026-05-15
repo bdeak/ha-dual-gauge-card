@@ -23,7 +23,7 @@ class DualGaugeCard extends HTMLElement {
     const showLegend = config.show_legend !== false;
     const animate = config.animate !== false;
 
-    const house = Math.max(0, parseFloat(hass.states[config.house_entity]?.state || 0));
+    const house = config.house_entity ? Math.max(0, parseFloat(hass.states[config.house_entity]?.state || 0)) : 0;
     const solar = Math.max(0, parseFloat(hass.states[config.solar_entity]?.state || 0));
     const grid = parseFloat(hass.states[config.grid_entity]?.state || 0);
     const gridImport = Math.max(0, grid);
@@ -39,7 +39,16 @@ class DualGaugeCard extends HTMLElement {
     const priceValue = config.price_entity ? parseFloat(hass.states[config.price_entity]?.state || 0) : null;
     const priceColors = { 'very_cheap': '#4CAF50', 'cheap': '#66BB6A', 'normal': '#FF9800', 'expensive': '#FF5722', 'very_expensive': '#F44336' };
 
+    // Build supplier list FIRST (needed for total consumption calculation)
+    const suppliers = [];
+    if (solar > 1) suppliers.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107', font_color: config.solar_font_color || 'white' });
+    if (gridImport > 1) suppliers.push({ name: 'Grid', value: gridImport, color: config.grid_color || '#2196F3', font_color: config.grid_font_color || 'white' });
+    if (batteryDischarge > 50) suppliers.push({ name: 'Battery', value: batteryDischarge, color: config.battery_discharge_color || '#4CAF50', font_color: config.battery_discharge_font_color || 'white' });
+    const supplyTotal = suppliers.reduce((s, c) => s + c.value, 0);
+
     // Build consumer list
+    // Total consumption = total supply (energy in = energy out)
+    const totalConsumption = supplyTotal;
     const consumers = [];
     let knownConsumers = 0;
     for (const ce of (config.consumer_entities || [])) {
@@ -53,18 +62,10 @@ class DualGaugeCard extends HTMLElement {
       consumers.push({ name: 'Battery', value: batteryCharge, color: config.battery_charge_color || '#9C27B0', font_color: config.battery_charge_font_color || 'white' });
       knownConsumers += batteryCharge;
     }
-    const remainingHouse = Math.max(50, house - knownConsumers);
+    const remainingHouse = Math.max(50, totalConsumption - knownConsumers);
     consumers.unshift({ name: 'House', value: remainingHouse, color: config.house_color || '#78909C', font_color: config.house_font_color || 'white' });
 
-    // Build supplier list
-    const suppliers = [];
-    if (solar > 1) suppliers.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107', font_color: config.solar_font_color || 'white' });
-    if (gridImport > 1) suppliers.push({ name: 'Grid', value: gridImport, color: config.grid_color || '#2196F3', font_color: config.grid_font_color || 'white' });
-    if (batteryDischarge > 50) suppliers.push({ name: 'Battery', value: batteryDischarge, color: config.battery_discharge_color || '#4CAF50', font_color: config.battery_discharge_font_color || 'white' });
-
     const consumeTotal = consumers.reduce((s, c) => s + c.value, 0);
-    const supplyTotal = suppliers.reduce((s, c) => s + c.value, 0);
-
     // Target angles
     const targetConsumerAngles = this._calcAngles(consumers, consumeTotal);
     const targetSupplierAngles = this._calcAngles(suppliers, supplyTotal);
@@ -73,7 +74,7 @@ class DualGaugeCard extends HTMLElement {
     const centerDisplay = config.center_display || 'consuming';
     let centerLabel, centerValue, secondaryLabel, secondaryValue;
     if (centerDisplay === 'grid') {
-      centerLabel = 'Grid'; centerValue = Math.abs(grid); secondaryLabel = 'House'; secondaryValue = house;
+      centerLabel = 'Grid'; centerValue = Math.abs(grid); secondaryLabel = 'House'; secondaryValue = remainingHouse;
     } else if (centerDisplay === 'supplying') {
       centerLabel = innerLabel; centerValue = supplyTotal; secondaryLabel = outerLabel; secondaryValue = consumeTotal;
     } else {
