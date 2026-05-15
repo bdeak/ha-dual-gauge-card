@@ -58,6 +58,8 @@ battery_entities:
 | `solar_entity` | Yes | | Solar production sensor (W) |
 | `grid_entity` | Yes | | Grid meter sensor (W). Positive = importing, negative = exporting |
 | `battery_entities` | Yes | | List of battery power sensors (W). Positive = discharging, negative = charging |
+| `consumer_entities` | No | `[]` | List of named consumers to show as separate segments in outer ring (see below) |
+| `center_display` | No | `consuming` | What to show in center: `consuming`, `grid`, or `supplying` |
 | `arc_thickness` | No | `22` | Thickness of each arc in pixels |
 | `outer_label` | No | `Consuming` | Label for the outer arc |
 | `inner_label` | No | `Supplying` | Label for the inner arc |
@@ -98,6 +100,14 @@ grid_entity: sensor.tibber_grid_power
 battery_entities:
   - sensor.battery_1_power
   - sensor.battery_2_power
+consumer_entities:
+  - entity: sensor.car_charger_power
+    name: Car
+    color: "#00BCD4"
+  - entity: sensor.pool_heater_power
+    name: Pool
+    color: "#26C6DA"
+center_display: grid
 arc_thickness: 26
 outer_label: Load
 inner_label: Source
@@ -108,6 +118,26 @@ grid_color: "#1976D2"
 battery_discharge_color: "#388E3C"
 battery_charge_color: "#7B1FA2"
 ```
+
+### Consumer entities
+
+The `consumer_entities` option lets you break down the outer (consuming) ring into named components. Each entry needs:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `entity` | Yes | Power sensor entity ID |
+| `name` | No | Display name (defaults to entity ID) |
+| `color` | No | Segment color (defaults to grey) |
+
+The "House" segment automatically shows the remaining consumption after subtracting all listed consumers. This keeps the total accurate.
+
+### Center display
+
+| Value | Shows |
+|-------|-------|
+| `consuming` | Total consumption (default) |
+| `grid` | Grid power + House as secondary |
+| `supplying` | Total supply |
 
 ## How it works
 
