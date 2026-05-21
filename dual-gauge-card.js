@@ -81,8 +81,19 @@ class DualGaugeCard extends HTMLElement {
       centerLabel = outerLabel; centerValue = consumeTotal; secondaryLabel = innerLabel; secondaryValue = supplyTotal;
     }
 
+    // Build legend items (always show all, even when 0)
+    const legendItems = [];
+    legendItems.push({ name: 'House', value: Math.max(0, (supplyTotal || 0) - knownConsumers), color: config.house_color || '#78909C' });
+    for (const ce of (config.consumer_entities || [])) {
+      const val = Math.max(0, parseFloat(hass.states[ce.entity]?.state || 0));
+      legendItems.push({ name: ce.name || ce.entity, value: val, color: ce.color || '#B0BEC5' });
+    }
+    if (config.battery_entities?.length) legendItems.push({ name: 'Battery', value: batteryCharge > 50 ? batteryCharge : (batteryDischarge > 50 ? batteryDischarge : 0), color: batteryCharge > 50 ? (config.battery_charge_color || '#9C27B0') : (config.battery_discharge_color || '#4CAF50') });
+    legendItems.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107' });
+    legendItems.push({ name: 'Grid', value: gridImport, color: config.grid_color || '#2196F3' });
+
     // Store render data
-    this._renderData = { config, consumers, suppliers, consumeTotal, supplyTotal, targetConsumerAngles, targetSupplierAngles, priceLevel, priceValue, priceColors, centerLabel, centerValue, secondaryLabel, secondaryValue, showLabels, showLegend, outerLabel, innerLabel, arcThickness, width: 300, animate };
+    this._renderData = { config, consumers, suppliers, consumeTotal, supplyTotal, targetConsumerAngles, targetSupplierAngles, priceLevel, priceValue, priceColors, centerLabel, centerValue, secondaryLabel, secondaryValue, showLabels, showLegend, outerLabel, innerLabel, arcThickness, width: 300, animate, legendItems };
 
     if (animate && this._prevConsumerAngles.length > 0) {
       this._animateTo(targetConsumerAngles, targetSupplierAngles);
@@ -235,9 +246,10 @@ class DualGaugeCard extends HTMLElement {
 
     this._svg.innerHTML = svg;
 
-    // Legend
-    const allItems = [...consumers, ...suppliers];
-    this._legendEl.innerHTML = showLegend ? allItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('') : '';
+    // Legend — always show all configured entities regardless of value
+    const rd = this._renderData;
+    const legendItems = rd.legendItems || [];
+    this._legendEl.innerHTML = rd.showLegend ? legendItems.map(i => `<span style="margin:0 5px;font-size:11px;white-space:nowrap;"><span style="color:${i.color}">●</span> ${i.name}: ${formatW(i.value)}</span>`).join('') : '';
   }
 
   getCardSize() { return 4; }
