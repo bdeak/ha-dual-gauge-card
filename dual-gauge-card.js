@@ -90,7 +90,7 @@ class DualGaugeCard extends HTMLElement {
     }
     if (config.battery_entities?.length) legendItems.push({ name: 'Battery', value: batteryCharge > 50 ? batteryCharge : (batteryDischarge > 50 ? batteryDischarge : 0), color: batteryCharge > 50 ? (config.battery_charge_color || '#9C27B0') : (config.battery_discharge_color || '#4CAF50') });
     legendItems.push({ name: 'Solar', value: solar, color: config.solar_color || '#FFC107' });
-    legendItems.push({ name: 'Grid', value: gridImport, color: config.grid_color || '#2196F3' });
+    legendItems.push({ name: grid >= 0 ? 'Grid' : 'Grid ↑', value: Math.abs(grid), color: config.grid_color || '#2196F3' });
 
     // Store render data
     this._renderData = { config, consumers, suppliers, consumeTotal, supplyTotal, targetConsumerAngles, targetSupplierAngles, priceLevel, priceValue, priceColors, centerLabel, centerValue, secondaryLabel, secondaryValue, showLabels, showLegend, outerLabel, innerLabel, arcThickness, width: 300, animate, legendItems };
